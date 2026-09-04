@@ -70,8 +70,9 @@ VITE_AI_API_KEY=your_nvidia_api_key
 VITE_AI_MODEL=qwen/qwen-2.5-coder-32b
 VITE_AI_BASE_URL=https://integrate.api.nvidia.com/v1
 
-# Optional: Gemini API (alternative)
-VITE_GEMINI_API_KEY=your_gemini_key
+# Optional: Groq API (used by EduSpark AI in `src/services/ai.ts`)
+VITE_GROQ_API_KEY=your_groq_key
+VITE_GROQ_MODEL=llama-3.3-70b-versatile
 
 # Optional: Mistral API (alternative)
 VITE_MISTRAL_API_KEY=your_mistral_key
@@ -134,8 +135,9 @@ Supported AI backends:
 2. **Mistral AI** (Alternative)
    - Models: Mistral 7B, 8x7B
 
-3. **Google Gemini** (Alternative)
-   - Model: Gemini Pro
+3. **Groq** (default in app)
+   - Models: Llama 3.3 70B, Llama 3.1 8B Instant, Mixtral 8x7B
+   - Console: https://console.groq.com/
 
 Usage:
 

@@ -56,7 +56,7 @@ export default function Analytics() {
                 </div>
                 <TrendingUp className="w-4 h-4 text-primary/40" />
               </div>
-              <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] mb-2 relative z-10">{stat.label}</p>
+              <p className="text-[10px] font-black text-white/70 uppercase tracking-[0.3em] mb-2 relative z-10">{stat.label}</p>
               <p className="text-4xl font-black text-white tracking-tighter relative z-10">{stat.value}</p>
             </motion.div>
           </ScrollReveal>
@@ -121,7 +121,7 @@ export default function Analytics() {
                     </div>
                     <div>
                       <p className="font-black text-white tracking-tight uppercase text-xs">{item.title}</p>
-                      <p className="text-white/40 text-[10px] font-medium">{item.desc}</p>
+                      <p className="text-white/70 text-[10px] font-medium">{item.desc}</p>
                     </div>
                   </div>
                   <span className="text-xs font-black text-primary">{item.xp} XP</span>

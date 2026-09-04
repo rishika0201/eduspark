@@ -11,20 +11,43 @@ import { StudentProvider, useStudent } from './contexts/StudentContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import NotificationCenter from './components/NotificationCenter';
+import ErrorBoundary from './components/ErrorBoundary';
+
+// Lazy loading pages with automatic retry on chunk load failure (e.g. network changes)
+function lazyWithRetry<T extends React.ComponentType<any>>(
+  componentImport: () => Promise<{ default: T }>
+) {
+  return React.lazy(async () => {
+    try {
+      return await componentImport();
+    } catch (error) {
+      console.warn('Chunk load failed, attempting page reload...', error);
+      const hasReloaded = sessionStorage.getItem('chunk_reload_attempted');
+      if (!hasReloaded) {
+        sessionStorage.setItem('chunk_reload_attempted', 'true');
+        window.location.reload();
+        return new Promise(() => {}) as any;
+      }
+      throw error;
+    }
+  });
+}
 
 // Lazy loading pages for performance optimization
-const Dashboard = React.lazy(() => import('./pages/Dashboard'));
-const Practice = React.lazy(() => import('./pages/Practice'));
-const Analytics = React.lazy(() => import('./pages/Analytics'));
-const PaperGen = React.lazy(() => import('./pages/PaperGen'));
-const Flashcards = React.lazy(() => import('./pages/Flashcards'));
-const GamifiedLearning = React.lazy(() => import('./pages/GamifiedLearning'));
-const Courses = React.lazy(() => import('./pages/Courses'));
-const Doubts = React.lazy(() => import('./pages/Doubts'));
-const Login = React.lazy(() => import('./pages/Login'));
-const Signup = React.lazy(() => import('./pages/Signup'));
-const Home = React.lazy(() => import('./pages/Home'));
-const StudyPlansPage = React.lazy(() => import('./pages/StudyPlansPage'));
+const Dashboard = lazyWithRetry(() => import('./pages/Dashboard'));
+const Practice = lazyWithRetry(() => import('./pages/Practice'));
+const Analytics = lazyWithRetry(() => import('./pages/Analytics'));
+const PaperGen = lazyWithRetry(() => import('./pages/PaperGen'));
+const Flashcards = lazyWithRetry(() => import('./pages/Flashcards'));
+const GamifiedLearning = lazyWithRetry(() => import('./pages/GamifiedLearning'));
+const Courses = lazyWithRetry(() => import('./pages/Courses'));
+const Doubts = lazyWithRetry(() => import('./pages/Doubts'));
+const Login = lazyWithRetry(() => import('./pages/Login'));
+const Signup = lazyWithRetry(() => import('./pages/Signup'));
+const Home = lazyWithRetry(() => import('./pages/Home'));
+const StudyPlansPage = lazyWithRetry(() => import('./pages/StudyPlansPage'));
+const TeacherLogin = lazyWithRetry(() => import('./pages/TeacherLogin'));
+const TeacherDashboard = lazyWithRetry(() => import('./pages/TeacherDashboard'));
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { studentInfo } = useStudent();
@@ -45,36 +68,40 @@ import { LanguageProvider } from './contexts/LanguageContext';
 
 export default function App() {
   return (
-    <LanguageProvider>
-      <StudentProvider>
-        <ThemeProvider>
-          <NotificationProvider>
-          <BrowserRouter>
-            <NotificationCenter />
-            <Suspense fallback={<PageLoader />}>
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/signup" element={<Signup />} />
-                <Route path="/app" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-                  <Route index element={<Dashboard />} />
-                  <Route path="courses" element={<Courses />} />
-                  <Route path="practice" element={<Practice />} />
-                  <Route path="practice/:subjectId/:chapterId" element={<Practice />} />
-                  <Route path="flashcards" element={<Flashcards />} />
-                  <Route path="doubts" element={<Doubts />} />
-                  <Route path="analytics" element={<Analytics />} />
-                  <Route path="paper-gen" element={<PaperGen />} />
-                  <Route path="gamified-learning" element={<GamifiedLearning />} />
-                  <Route path="study-plans" element={<StudyPlansPage />} />
-                </Route>
-                <Route path="/dashboard" element={<Navigate to="/app" replace />} />
-              </Routes>
-            </Suspense>
-          </BrowserRouter>
-        </NotificationProvider>
-      </ThemeProvider>
-    </StudentProvider>
-    </LanguageProvider>
+    <ErrorBoundary>
+      <LanguageProvider>
+        <StudentProvider>
+          <ThemeProvider>
+            <NotificationProvider>
+            <BrowserRouter>
+              <NotificationCenter />
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/signup" element={<Signup />} />
+                  <Route path="/teacher-login" element={<TeacherLogin />} />
+                  <Route path="/teacher" element={<TeacherDashboard />} />
+                  <Route path="/app" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+                    <Route index element={<Dashboard />} />
+                    <Route path="courses" element={<Courses />} />
+                    <Route path="practice" element={<Practice />} />
+                    <Route path="practice/:subjectId/:chapterId" element={<Practice />} />
+                    <Route path="flashcards" element={<Flashcards />} />
+                    <Route path="doubts" element={<Doubts />} />
+                    <Route path="analytics" element={<Analytics />} />
+                    <Route path="paper-gen" element={<PaperGen />} />
+                    <Route path="gamified-learning" element={<GamifiedLearning />} />
+                    <Route path="study-plans" element={<StudyPlansPage />} />
+                  </Route>
+                  <Route path="/dashboard" element={<Navigate to="/app" replace />} />
+                </Routes>
+              </Suspense>
+            </BrowserRouter>
+          </NotificationProvider>
+        </ThemeProvider>
+      </StudentProvider>
+      </LanguageProvider>
+    </ErrorBoundary>
   );
 }

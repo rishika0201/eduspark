@@ -15,16 +15,7 @@ export interface CourseCard {
   outcomes: string[];
 }
 
-export interface LiveClass {
-  id: string;
-  title: string;
-  subject: string;
-  mentor: string;
-  time: string;
-  duration: string;
-  status: 'Live' | 'Upcoming' | 'Replay';
-  seats: string;
-}
+
 
 export interface DoubtThread {
   id: string;
@@ -134,38 +125,7 @@ export const courseCatalog: CourseCard[] = [
   },
 ];
 
-export const liveClasses: LiveClass[] = [
-  {
-    id: 'live-1',
-    title: 'Quadratic Equations: Roots and Shortcuts',
-    subject: 'Mathematics',
-    mentor: 'Ananya Rao',
-    time: 'Today, 6:00 PM',
-    duration: '55 min',
-    status: 'Upcoming',
-    seats: '2.4k learners',
-  },
-  {
-    id: 'live-2',
-    title: 'Light: Ray Diagrams That Always Score',
-    subject: 'Science',
-    mentor: 'Dr. Kabir Sen',
-    time: 'Live now',
-    duration: '48 min',
-    status: 'Live',
-    seats: '1.8k learners',
-  },
-  {
-    id: 'live-3',
-    title: 'Answer Writing Clinic: History Long Answers',
-    subject: 'Social Science',
-    mentor: 'Meera Thomas',
-    time: 'Yesterday replay',
-    duration: '42 min',
-    status: 'Replay',
-    seats: 'Replay ready',
-  },
-];
+
 
 export const doubtThreads: DoubtThread[] = [
   {
@@ -197,7 +157,7 @@ export const doubtThreads: DoubtThread[] = [
 export const weeklyPlan = [
   { day: 'Mon', task: 'Concept video', subject: 'Mathematics', minutes: 35, done: true },
   { day: 'Tue', task: 'Adaptive quiz', subject: 'Science', minutes: 25, done: true },
-  { day: 'Wed', task: 'Live class', subject: 'Mathematics', minutes: 55, done: false },
+  { day: 'Wed', task: 'Topic review', subject: 'Mathematics', minutes: 55, done: false },
   { day: 'Thu', task: 'Doubt clearing', subject: 'Science', minutes: 20, done: false },
   { day: 'Fri', task: 'Board mock', subject: 'Social Science', minutes: 45, done: false },
 ];

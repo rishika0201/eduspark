@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, BookOpen, Layers, RotateCcw, Sparkles } from 'lu
 import { clsx } from 'clsx';
 import { useStudent } from '../contexts/StudentContext';
 import { syllabusData } from '../data/syllabus';
+import { flashcardData } from '../data/flashcardContent';
 
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -14,7 +15,13 @@ export default function Flashcards() {
   const { studentInfo } = useStudent();
   const { t } = useLanguage();
   const grade = studentInfo?.grade || 'Class 10';
-  const syllabus = syllabusData[grade] || syllabusData['Class 10'];
+  const board = studentInfo?.board || 'CBSE';
+  
+  const syllabus = useMemo(() => {
+    const boardData = syllabusData[board] || syllabusData['CBSE'];
+    return boardData[grade] || boardData['Class 10'];
+  }, [board, grade]);
+
   const subjects = Object.keys(syllabus);
   const [subject, setSubject] = useState(subjects[0]);
   const [chapter, setChapter] = useState('');
@@ -31,18 +38,26 @@ export default function Flashcards() {
     const topics = syllabus[subject]?.units.flatMap((unit) => unit.topics) || [];
     const topic = topics.find((item) => getTopicName(item) === activeChapter);
     const subtopics = topic ? getSubtopics(topic) : [];
+    const subjectKey = Object.keys(flashcardData).find(k => k.toLowerCase() === subject.toLowerCase().trim());
+    const chapterKey = subjectKey ? Object.keys(flashcardData[subjectKey]).find(k => k.toLowerCase() === activeChapter.toLowerCase().trim()) : null;
+    const realCards = (subjectKey && chapterKey) ? flashcardData[subjectKey][chapterKey] : null;
+
+    if (realCards && realCards.length > 0) {
+      return realCards;
+    }
+
     const baseCards = [
       {
-        front: activeChapter,
-        back: `${t('Start with the core definition, key formula or rule, and one solved example from')} ${t(subject)}.`,
+        front: `${activeChapter} — overview`,
+        back: `• Chapter: ${activeChapter} (${t(subject)})\n• Terms: note official NCERT definitions for each bold term in the chapter.\n• Core: list every formula/law stated in the chapter in one place.\n• Data: collect named laws, scientists, and SI units mentioned.\n• Apply: one standard numerical or diagram prompt typical of board papers.`,
       },
       ...subtopics.map((subtopic) => ({
-        front: subtopic,
-        back: `${t('Explain how')} "${subtopic}" ${t('connects to')} ${activeChapter}, ${t('then solve one short question before moving on.')}`,
+        front: `${activeChapter} — ${subtopic}`,
+        back: `• Focus: ${subtopic}\n• Define the idea in one line as in the textbook.\n• State the governing relation or classification rule.\n• Give one textbook-style fact or consequence.\n• Give one short application or contrast (with a related idea).`,
       })),
       {
-        front: t('Exam Check'),
-        back: `${t('Write two likely exam questions from')} ${activeChapter} ${t('and mark the steps where students usually lose marks.')}`,
+        front: `${activeChapter} — quick recall`,
+        back: `• Scan all in-chapter examples; note the given → required pattern.\n• List special cases (e.g., zero, maxima, boundary conditions).\n• Copy key diagrams labels you must reproduce in exams.`,
       },
     ];
     return baseCards;
@@ -153,7 +168,7 @@ export default function Flashcards() {
                     {isFlipped ? t('Answer') : t('Prompt')}
                   </span>
                 </div>
-                <p className="text-3xl md:text-5xl font-black tracking-tighter leading-tight">
+                <p className="text-2xl md:text-3xl font-black tracking-tighter leading-tight whitespace-pre-wrap">
                   {isFlipped ? currentCard.back : currentCard.front}
                 </p>
               </motion.button>

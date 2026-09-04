@@ -1,9 +1,18 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { clsx } from 'clsx';
 import { Sparkles, User, Mail, Lock, ChevronRight } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { useStudent } from '../contexts/StudentContext';
+import { useStudent, type StudentInfo } from '../contexts/StudentContext';
+import { parseResponseJson } from '../utils/helpers';
+import { syllabusData } from '../data/syllabus';
+import { upsertLocalAccount } from '../services/localAuth';
+
+function interestsForGrade(grade: string): string[] {
+  const keys = Object.keys(syllabusData[grade] ?? syllabusData['Class 10']);
+  return keys.length >= 2 ? keys.slice(0, 4) : ['Mathematics', 'Science', 'English', 'Social Science'];
+}
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -14,34 +23,65 @@ export default function Signup() {
     email: '',
     password: '',
     grade: 'Class 10',
-    board: 'CBSE'
+    board: 'CBSE' as 'CBSE' | 'State Board'
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const boards = ['CBSE', 'State Board'] as const;
+
+  const interestsForGrade = (grade: string, board: string): string[] => {
+    const boardData = syllabusData[board as keyof typeof syllabusData] || syllabusData['CBSE'];
+    const keys = Object.keys(boardData[grade as keyof typeof boardData] ?? boardData['Class 10']);
+    return keys.length >= 2 ? keys.slice(0, 4) : ['Mathematics', 'Science', 'English', 'Social Science'];
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
+    let response: Response | null = null;
     try {
-      const response = await fetch('/api/auth/signup', {
+      response = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || t('Signup failed'));
-
-      localStorage.setItem('token', data.token);
-      login(data.user);
-      navigate('/app');
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+    } catch {
+      response = null;
     }
+
+    const data = response
+      ? await parseResponseJson<{ message?: string; user?: StudentInfo; token?: string }>(response)
+      : null;
+
+    if (response?.ok && data?.user) {
+      if (data.token) localStorage.setItem('token', data.token);
+      upsertLocalAccount(formData.password, { ...data.user, board: formData.board });
+      login({ ...data.user, board: formData.board });
+      navigate('/app');
+      setLoading(false);
+      return;
+    }
+
+    if (response && !response.ok && data?.message) {
+      setError(data.message);
+      setLoading(false);
+      return;
+    }
+
+    const user: StudentInfo = {
+      name: formData.name.trim(),
+      email: formData.email.trim(),
+      grade: formData.grade,
+      board: formData.board,
+      interests: interestsForGrade(formData.grade, formData.board),
+    };
+    upsertLocalAccount(formData.password, user);
+    login(user);
+    navigate('/app');
+    setLoading(false);
   };
 
   return (
@@ -114,24 +154,26 @@ export default function Signup() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-6">
-              <select
-                className="w-full bg-white/5 border border-white/10 rounded-[2rem] px-8 py-5 text-white outline-none focus:border-primary/50 transition-all appearance-none font-medium cursor-pointer"
-                value={formData.grade}
-                onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
-              >
-                <option value="Class 10" className="bg-black">{t('Class 10')}</option>
-                <option value="Class 12" className="bg-black">{t('Class 12')}</option>
-              </select>
-              <select
-                className="w-full bg-white/5 border border-white/10 rounded-[2rem] px-8 py-5 text-white outline-none focus:border-primary/50 transition-all appearance-none font-medium cursor-pointer"
-                value={formData.board}
-                onChange={(e) => setFormData({ ...formData, board: e.target.value })}
-              >
-                <option value="CBSE" className="bg-black">{t('CBSE')}</option>
-                <option value="ICSE" className="bg-black">{t('ICSE')}</option>
-                <option value="State Board" className="bg-black">{t('State Board')}</option>
-              </select>
+            <div className="grid grid-cols-2 gap-4">
+              {boards.map((b) => (
+                <button
+                  key={b}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, board: b })}
+                  className={clsx(
+                    "py-4 rounded-3xl font-black text-[10px] uppercase tracking-widest transition-all border",
+                    formData.board === b 
+                      ? "bg-primary text-black border-primary" 
+                      : "bg-white/5 text-white/40 border-white/10 hover:border-white/20"
+                  )}
+                >
+                  {b}
+                </button>
+              ))}
+            </div>
+
+            <div className="bg-white/5 border border-white/10 rounded-[2rem] px-8 py-5 text-white/60 font-black text-center uppercase tracking-widest text-xs">
+              {formData.grade} • {formData.board} Syllabus
             </div>
 
             <motion.button
@@ -139,7 +181,7 @@ export default function Signup() {
               whileTap={{ scale: 0.98 }}
               type="submit"
               disabled={loading}
-              className="w-full bg-primary text-black py-6 rounded-full font-black text-xl flex items-center justify-center gap-4 shadow-[0_0_50px_rgba(74,222,128,0.24)] transition-all mt-8 hover:bg-primary/90 disabled:opacity-50"
+              className="w-full bg-primary text-black py-6 rounded-full font-black text-xl flex items-center justify-center gap-4 shadow-[0_0_50px_rgba(87,120,143,0.24)] transition-all mt-8 hover:bg-primary/90 disabled:opacity-50"
             >
               {loading ? t('Initializing...') : t('Create Account')}
               <ChevronRight className="w-6 h-6" />

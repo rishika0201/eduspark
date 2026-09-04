@@ -1,44 +1,89 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Sparkles, Mail, Lock, ChevronRight } from 'lucide-react';
+import { clsx } from 'clsx';
+import { Sparkles, Mail, Lock, ChevronRight, User } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { useStudent } from '../contexts/StudentContext';
+import { useStudent, type StudentInfo } from '../contexts/StudentContext';
+import { parseResponseJson } from '../utils/helpers';
+import { syllabusData } from '../data/syllabus';
+import { findLocalLogin, upsertLocalAccount } from '../services/localAuth';
 
 export default function Login() {
   const navigate = useNavigate();
   const { login } = useStudent();
   const { t } = useLanguage();
   const [formData, setFormData] = useState({
+    name: '',
     email: '',
-    password: ''
+    password: '',
+    board: 'CBSE' as 'CBSE' | 'State Board'
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [guestOpen, setGuestOpen] = useState(false);
+  const [guestGrade, setGuestGrade] = useState('Class 10');
+  const [guestBoard, setGuestBoard] = useState('CBSE' as 'CBSE' | 'State Board');
+
+  const gradeOptions = useMemo(() => Object.keys(syllabusData['CBSE'] || {}), []);
+  const boards = ['CBSE', 'State Board'] as const;
+
+  const tryRemoteLogin = async (force?: boolean): Promise<boolean> => {
+    let response: Response;
+    try {
+      response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...formData, ...(force ? { forceLogin: true } : {}) })
+      });
+    } catch {
+      return false;
+    }
+    const data = await parseResponseJson<{ message?: string; user?: StudentInfo; token?: string }>(response);
+    if (!response.ok || !data?.user) return false;
+    if (data.token) localStorage.setItem('token', data.token);
+    
+    // Ensure board is set if not provided by server
+    const userWithBoard = { ...data.user, board: formData.board || data.user.board || 'CBSE' };
+    
+    upsertLocalAccount(formData.password, userWithBoard);
+    login(userWithBoard);
+    navigate('/app');
+    return true;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || t('Login failed'));
-
-      localStorage.setItem('token', data.token);
-      login(data.user);
-      navigate('/app');
-    } catch (err: any) {
-      setError(err.message);
+      if (await tryRemoteLogin(false)) return;
+      const localUser = findLocalLogin(formData.email, formData.password);
+      if (localUser) {
+        // Update board if it was changed
+        const userWithBoard = { ...localUser, board: formData.board };
+        login(userWithBoard);
+        navigate('/app');
+        return;
+      }
+      setError(t('Login failed'));
     } finally {
       setLoading(false);
     }
+  };
+
+
+  const confirmGuest = () => {
+    const subs = Object.keys(syllabusData[guestBoard]?.[guestGrade] || syllabusData['CBSE']?.['Class 10'] || {});
+    const interests = subs.length >= 2 ? subs.slice(0, 4) : ['Mathematics', 'Science', 'English'];
+    login({
+      name: t('Guest learner'),
+      email: 'guest@eduspark.com',
+      grade: guestGrade,
+      board: guestBoard,
+      interests,
+    });
+    navigate('/app');
   };
 
   return (
@@ -68,7 +113,7 @@ export default function Login() {
           className="bg-white/5 backdrop-blur-3xl p-10 md:p-16 rounded-[4rem] border border-white/10 shadow-2xl shadow-black/50"
         >
           <div className="mb-12">
-            <h2 className="text-4xl font-black text-white tracking-tighter mb-4">{t('Initialize Session.')}</h2>
+            <h2 className="text-4xl font-black text-white tracking-tighter mb-4">{t('Portal login title')}</h2>
             <p className="text-white/40 font-medium text-lg">{t('Enter your credentials to access your portal.')}</p>
           </div>
 
@@ -76,6 +121,17 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-8">
             <div className="space-y-6">
+              <div className="relative group">
+                <User className="absolute left-6 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-primary transition-colors" />
+                <input
+                  type="text"
+                  placeholder={t('Full Name (For first-time login)')}
+                  className="w-full bg-white/5 border border-white/10 rounded-[2rem] px-16 py-5 text-white outline-none focus:border-primary/50 transition-all font-medium"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                />
+              </div>
+
               <div className="relative group">
                 <Mail className="absolute left-6 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-primary transition-colors" />
                 <input
@@ -99,6 +155,25 @@ export default function Login() {
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 />
               </div>
+
+              {/* Board Selection */}
+              <div className="grid grid-cols-2 gap-4">
+                {boards.map((b) => (
+                  <button
+                    key={b}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, board: b })}
+                    className={clsx(
+                      "py-4 rounded-3xl font-black text-sm uppercase tracking-widest transition-all border",
+                      formData.board === b 
+                        ? "bg-primary text-black border-primary shadow-[0_0_20px_rgba(87,120,143,0.3)]" 
+                        : "bg-white/5 text-white/40 border-white/10 hover:border-white/20"
+                    )}
+                  >
+                    {b}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <motion.button
@@ -106,58 +181,65 @@ export default function Login() {
               whileTap={{ scale: 0.98 }}
               type="submit"
               disabled={loading}
-              className="w-full bg-primary text-black py-6 rounded-full font-black text-xl flex items-center justify-center gap-4 shadow-[0_0_50px_rgba(74,222,128,0.24)] transition-all mt-12 hover:bg-primary/90 disabled:opacity-50"
+              className="w-full bg-primary text-on-primary py-6 rounded-full font-black text-xl flex items-center justify-center gap-4 shadow-[0_0_50px_rgba(87,120,143,0.35)] transition-all mt-12 hover:brightness-110 disabled:opacity-50"
             >
               {loading ? t('Authenticating...') : t('Access Portal')}
               <ChevronRight className="w-6 h-6" />
             </motion.button>
 
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              type="button"
-              onClick={async () => {
-                if (!formData.email) return setError(t('Enter your email first for Emergency Login'));
-                setLoading(true);
-                try {
-                  const response = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...formData, forceLogin: true })
-                  });
-                  const data = await response.json();
-                  if (!response.ok) throw new Error(data.message);
-                  login(data.user);
-                  navigate('/app');
-                } catch (err: any) {
-                  setError(err.message);
-                } finally {
-                  setLoading(false);
-                }
-              }}
-              className="w-full bg-red-500/10 text-red-400 py-4 rounded-full font-black text-sm flex items-center justify-center gap-4 border border-red-500/20 mt-4 hover:bg-red-500/20 transition-all"
-            >
-              {t('Emergency Login (Password Override)')}
-            </motion.button>
 
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              type="button"
-              onClick={() => {
-                login({
-                  name: 'Guest User',
-                  email: 'guest@eduspark.com',
-                  grade: 'Class 10',
-                  board: 'CBSE',
-                  interests: ['Mathematics', 'Science']
-                });
-                navigate('/app');
-              }}
-              className="w-full bg-white/5 text-white/60 py-5 rounded-full font-bold text-lg flex items-center justify-center gap-4 border border-white/10 mt-4 hover:bg-white/10 transition-all"
-            >
-              {t('Enter as Guest')}
-            </motion.button>
+            {!guestOpen ? (
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  type="button"
+                  onClick={() => setGuestOpen(true)}
+                  className="w-full bg-white/5 text-primary py-5 rounded-full font-bold text-lg flex items-center justify-center gap-4 border border-primary/30 mt-4 hover:bg-primary/10 transition-all shadow-[0_0_30px_rgba(87,120,143,0.1)]"
+                >
+                  {t('Enter as Guest')}
+                </motion.button>
+            ) : (
+              <div className="mt-6 space-y-4 rounded-[2rem] border border-white/10 bg-black/30 p-6">
+
+                <div className="grid grid-cols-2 gap-3">
+                  {boards.map((b) => (
+                    <button
+                      key={b}
+                      type="button"
+                      onClick={() => setGuestBoard(b)}
+                      className={clsx(
+                        "py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border",
+                        guestBoard === b 
+                          ? "bg-primary text-black border-primary shadow-[0_0_15px_rgba(87,120,143,0.3)]" 
+                          : "bg-white/5 text-white/40 border-white/10 hover:border-white/20"
+                      )}
+                    >
+                      {b}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white/50 font-black text-center uppercase tracking-[0.2em] text-xs">
+                  Class 10 • {guestBoard}
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={confirmGuest}
+                    className="flex-1 bg-primary text-black py-4 rounded-full font-black text-sm hover:bg-white transition-colors"
+                  >
+                    {t('Continue as guest')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setGuestOpen(false)}
+                    className="px-6 py-4 rounded-full border border-white/15 text-white/70 text-sm font-bold hover:bg-white/5"
+                  >
+                    {t('Back')}
+                  </button>
+                </div>
+              </div>
+            )}
           </form>
 
           <p className="mt-12 text-center text-white/40">

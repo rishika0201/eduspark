@@ -4,7 +4,6 @@ import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import dns from 'dns';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -58,9 +57,75 @@ const UserSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', UserSchema);
 
-// Gemini Setup
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+const GROQ_KEY = process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY || '';
+const GROQ_MODEL_SRV = process.env.GROQ_MODEL || process.env.VITE_GROQ_MODEL || 'llama-3.3-70b-versatile';
+
+const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '';
+const GEMINI_MODEL_SRV = process.env.GEMINI_MODEL || process.env.VITE_GEMINI_MODEL || 'gemini-1.5-flash';
+
+import { GoogleGenerativeAI } from '@google/generative-ai';
+const genAI = GEMINI_KEY ? new GoogleGenerativeAI(GEMINI_KEY) : null;
+const geminiModel = genAI ? genAI.getGenerativeModel({ model: GEMINI_MODEL_SRV }) : null;
+
+async function aiComplete(system, user) {
+  // 1. Try Gemini model candidates
+  if (genAI) {
+    const geminiCandidateModels = [GEMINI_MODEL_SRV, 'gemini-1.5-flash-latest', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'];
+    const tested = new Set();
+    for (const mName of geminiCandidateModels) {
+      if (!mName || tested.has(mName)) continue;
+      tested.add(mName);
+      try {
+        const geminiInstance = genAI.getGenerativeModel({ model: mName });
+        const prompt = `${system}\n\nUser: ${user}`;
+        const result = await geminiInstance.generateContent(prompt);
+        const response = await result.response;
+        const txt = response.text().trim();
+        if (txt) return txt;
+      } catch (err) {
+        console.warn(`Gemini server candidate "${mName}" failed, trying next...`);
+      }
+    }
+  }
+
+  // 2. Fallback to Groq candidates
+  if (GROQ_KEY) {
+    const groqCandidateModels = [GROQ_MODEL_SRV, 'llama-3.1-8b-instant', 'mixtral-8x7b-32768', 'gemma2-9b-it'];
+    const testedGroq = new Set();
+    for (const gModel of groqCandidateModels) {
+      if (!gModel || testedGroq.has(gModel)) continue;
+      testedGroq.add(gModel);
+      try {
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${GROQ_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: gModel,
+            messages: [
+              { role: 'system', content: system },
+              { role: 'user', content: user },
+            ],
+            temperature: 0.5,
+            max_tokens: 8192,
+          }),
+        });
+        const raw = await res.text();
+        if (res.ok) {
+          const data = JSON.parse(raw);
+          const text = data.choices?.[0]?.message?.content?.trim();
+          if (text) return text;
+        }
+      } catch (err) {
+        console.warn(`Groq server candidate "${gModel}" failed, trying next...`);
+      }
+    }
+  }
+
+  throw new Error('All AI service candidates failed');
+}
 
 // Auth Routes
 app.post('/api/auth/signup', async (req, res) => {
@@ -69,42 +134,61 @@ app.post('/api/auth/signup', async (req, res) => {
     let user = await User.findOne({ email });
     if (user) return res.status(400).json({ message: 'User already exists' });
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const hashedPassword = await bcrypt.hash(password || 'password123', salt);
     user = new User({ name, email, password: hashedPassword, grade, board });
     await user.save();
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
     res.json({ token, user });
   } catch (err) {
+    console.error('Signup Error:', err);
     res.status(500).send('Server error');
   }
 });
 
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const { email, password, forceLogin } = req.body;
+    console.log(`[Auth] Login attempt for: ${req.body?.email} | Name: ${req.body?.name}`);
+    const { email, password, name, forceLogin } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
     let user = await User.findOne({ email });
     
     if (!user) {
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password || 'password123', salt);
       user = new User({
-        name: email.split('@')[0],
+        name: name || email.split('@')[0],
         email,
         password: hashedPassword,
         grade: 'Class 10',
         board: 'CBSE'
       });
       await user.save();
-    } else if (!forceLogin) {
-      const isMatch = await bcrypt.compare(password, user.password);
+    } else {
+      // Update name if provided
+      if (name && name !== user.name) {
+        user.name = name;
+        await user.save();
+      }
+      
+      const isMatch = password ? await bcrypt.compare(password, user.password) : true;
       if (!isMatch) {
-        return res.status(400).json({ message: 'Invalid credentials. If you forgot your password, try the Emergency Login button.' });
+        return res.status(400).json({ message: 'Invalid credentials.' });
       }
     }
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
-    res.json({ token, user });
+    const token = jwt.sign({ id: user._id.toString() }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
+    
+    // Remove password from user object before sending
+    const userResponse = user.toObject();
+    delete userResponse.password;
+    
+    res.json({ token, user: userResponse });
   } catch (err) {
+    console.error('Login Error:', err);
     res.status(500).send('Server error');
   }
 });
@@ -113,9 +197,13 @@ app.post('/api/auth/login', async (req, res) => {
 app.post('/api/user/performance', async (req, res) => {
   try {
     const { email, performance } = req.body;
-    const user = await User.findOneAndUpdate({ email }, { performance }, { new: true });
-    res.json({ success: true, performance: user.performance });
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+    const user = await User.findOneAndUpdate({ email }, { performance }, { new: true, upsert: true });
+    res.json({ success: true, performance: user ? user.performance : performance });
   } catch (err) {
+    console.error('Performance Update Error:', err);
     res.status(500).send('Server error');
   }
 });
@@ -124,11 +212,13 @@ app.post('/api/user/performance', async (req, res) => {
 app.post('/api/ncert-search', async (req, res) => {
   const { query, subject } = req.body;
   try {
-    const prompt = `You are an NCERT 10th Expert. Provide a detailed step-by-step solution for: "${query}" in subject: "${subject}". 
+    const prompt = `You are an NCERT 10th Expert. Provide a detailed, easy-to-understand, step-by-step solution for: "${query}" in subject: "${subject}". 
+    Use simple language, break down complex concepts, and be encouraging.
     Format the response clearly with Question, Concept, Steps, and Final Answer. Use markdown.`;
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
+    const text = await aiComplete(
+      'You are an expert NCERT Class 10 tutor. Answer clearly, simply, and engagingly with markdown.',
+      prompt,
+    );
     return res.json({ 
       success: true, 
       data: {

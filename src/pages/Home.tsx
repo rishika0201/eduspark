@@ -29,9 +29,6 @@ export default function Home() {
   const featuredCourses = courseCatalog.slice(0, 4);
   const navLinks = [
     { name: t('Courses'), href: '#courses' },
-    { name: t('Live Classes'), href: '#live' },
-    { name: t('Doubts'), href: '#doubts' },
-    { name: t('Results'), href: '#results' },
   ];
 
   return (
@@ -62,6 +59,9 @@ export default function Home() {
             </div>
 
             <div className="hidden sm:flex items-center gap-3">
+              <Link to="/teacher-login" className="hidden md:inline px-4 py-3 rounded-2xl border border-primary/30 text-primary font-black text-sm hover:bg-primary/10 transition-all">
+                {t('Teachers portal')}
+              </Link>
               <button onClick={toggleTheme} className="p-3 rounded-2xl bg-white/5 border border-white/10 font-black hover:bg-white/10 transition-all" aria-label="Toggle theme">
                 {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               </button>
@@ -105,7 +105,7 @@ export default function Home() {
               <span className="block text-primary">{t('Learn like toppers revise.')}</span>
             </motion.h1>
             <motion.p initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="text-lg md:text-xl text-white/60 max-w-2xl mt-7 leading-8">
-              {t('Animated lessons, live teacher rooms, instant doubt solving, adaptive practice, analytics, rewards, and exam paper generation in one student app.')}
+              {t('Animated lessons, instant doubt solving, adaptive practice, analytics, rewards, and exam paper generation in one student app.')}
             </motion.p>
             <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} className="flex flex-col sm:flex-row gap-3 mt-9">
               <Link to="/signup" className="inline-flex items-center justify-center gap-3 bg-gradient-to-r from-primary to-pink-500 text-black px-7 py-4 rounded-2xl font-black text-lg hover:shadow-[0_0_30px_rgba(22,163,74,0.35)] transition-all transform hover:-translate-y-1">
@@ -129,9 +129,9 @@ export default function Home() {
             </div>
             <div className="space-y-3">
               {[
-                [t('Quadratic Equations'), t('Live class at 6:00 PM'), PlayCircle],
+                [t('Quadratic Equations'), t('35 min concept video'), PlayCircle],
                 [t('Light Reflection'), t('18 adaptive questions'), Sparkles],
-                [t('History Map Work'), t('Teacher-checked drill'), ShieldCheck],
+                [t('History Map Work'), t('Interactive drill session'), ShieldCheck],
               ].map(([title, meta, Icon]) => {
                 const RowIcon = Icon as typeof PlayCircle;
                 return (
@@ -196,7 +196,7 @@ export default function Home() {
         </motion.div>
       </section>
 
-      <section id="live" className="border-y border-white/10 bg-white/[0.03]">
+      <section id="features" className="border-y border-white/10 bg-white/[0.03]">
         <motion.div 
           initial="hidden"
           whileInView="visible"
@@ -205,15 +205,14 @@ export default function Home() {
             hidden: { opacity: 0 },
             visible: { opacity: 1, transition: { staggerChildren: 0.15 } }
           }}
-          className="max-w-7xl mx-auto px-5 lg:px-10 py-16 grid lg:grid-cols-4 gap-5"
+          className="max-w-7xl mx-auto px-5 lg:px-10 py-16 grid lg:grid-cols-3 gap-5"
         >
           {[
-            [PlayCircle, t('Live classes'), t('Interactive teacher rooms, polls, and replays.'), 'from-green-500 to-yellow-400'],
             [MessagesSquare, t('Doubt solving'), t('AI explanations with mentor review.'), 'from-green-400 to-pink-400'],
             [BarChart3, t('Performance analytics'), t('Weak-topic heatmaps and exam readiness.'), 'from-yellow-400 to-red-500'],
             [Trophy, t('Rewards'), t('Streaks, badges, XP, and weekly challenges.'), 'from-pink-500 to-red-500'],
           ].map(([Icon, title, copy, gradient]) => {
-            const FeatureIcon = Icon as typeof PlayCircle;
+            const FeatureIcon = Icon as typeof MessagesSquare;
             return (
               <motion.div 
                 variants={{ hidden: { opacity: 0, scale: 0.9 }, visible: { opacity: 1, scale: 1 } }}

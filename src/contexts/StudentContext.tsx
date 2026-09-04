@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { localStorage_safe } from '../utils/helpers';
+import { registerStudent } from '../services/eduPortalStorage';
 
 export interface PerformanceMetrics {
   topicsCompleted: number;
@@ -66,6 +67,22 @@ export function StudentProvider({ children }: { children: ReactNode }) {
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (!studentInfo?.email) return;
+    registerStudent({
+      email: studentInfo.email,
+      name: studentInfo.name,
+      grade: studentInfo.grade,
+      board: studentInfo.board,
+      lastSeen: new Date().toISOString(),
+      performance: {
+        topicsCompleted: performance.topicsCompleted,
+        testsAttempted: performance.testsAttempted,
+        averageScore: performance.averageScore,
+      },
+    });
+  }, [studentInfo?.email, studentInfo?.name, studentInfo?.grade, studentInfo?.board, performance.topicsCompleted, performance.testsAttempted, performance.averageScore]);
 
   const syncPerformance = async (metrics: PerformanceMetrics) => {
     if (!studentInfo?.email) return;

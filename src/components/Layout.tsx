@@ -25,8 +25,6 @@ export default function Layout() {
     { name: t('Flashcards'), path: '/app/flashcards', icon: Layers },
     { name: t('Gamify'), path: '/app/gamified-learning', icon: Gamepad2 },
     { name: t('Paper Gen'), path: '/app/paper-gen', icon: GraduationCap },
-    { name: t('Doubts'), path: '/app/doubts', icon: MessagesSquare },
-    { name: t('Progress'), path: '/app/analytics', icon: LineChart },
   ];
 
   return (

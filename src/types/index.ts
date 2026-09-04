@@ -59,6 +59,7 @@ export interface Topic {
   videoCount?: number;
   questionCount?: number;
   description?: string;
+  videoUrl?: string;
 }
 
 export interface Unit {

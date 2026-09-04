@@ -19,7 +19,13 @@ export default function Courses() {
   const [currentVideoUrl, setCurrentVideoUrl] = useState<string | null>(null);
 
   const grade = studentInfo?.grade || 'Class 10';
-  const subjects = Object.keys(syllabusData[grade] || syllabusData['Class 10']);
+  const board = studentInfo?.board || 'CBSE';
+  
+  const subjects = useMemo(() => {
+    const boardData = syllabusData[board] || syllabusData['CBSE'];
+    const classData = boardData[grade] || boardData['Class 10'];
+    return Object.keys(classData || {});
+  }, [board, grade]);
 
   const filteredSubjects = subjects.filter(s => s.toLowerCase().includes(query.toLowerCase()));
 
@@ -28,7 +34,8 @@ export default function Courses() {
     setActiveTopic(topic, subject);
     
     // Find video URL from syllabus
-    const subjectData = syllabusData[grade]?.[subject] || syllabusData['Class 10']?.[subject];
+    const boardData = syllabusData[board] || syllabusData['CBSE'];
+    const subjectData = boardData[grade]?.[subject] || boardData['Class 10']?.[subject];
     const unit = subjectData?.units.find((u: any) => u.topics.some((t: any) => (typeof t === 'string' ? t : t.name) === topic));
     const topicObj = unit?.topics.find((t: any) => (typeof t === 'string' ? t : t.name) === topic);
     setCurrentVideoUrl(typeof topicObj === 'object' ? topicObj.videoUrl || null : null);
@@ -36,7 +43,7 @@ export default function Courses() {
     setIsLoadingLesson(true);
     setLessonContent('');
     try {
-      const content = await generateLessonContent(topic, subject);
+      const content = await generateLessonContent(topic, subject, board);
       setLessonContent(cleanAIOutput(content));
     } catch (e) {
       setLessonContent('## Error loading content. Please check your connection.');
@@ -60,7 +67,7 @@ export default function Courses() {
                 {t('Subjects')} & {t('Chapters')}.
               </h1>
               <p className="text-white/40 text-lg mt-5 max-w-2xl">
-                {t('Explore courses')} specifically designed for {grade}. Select a subject to dive into lessons and real-time practice.
+                {t('Explore courses')} specifically designed for {grade} ({board}). Select a subject to dive into lessons and real-time practice.
               </p>
             </div>
           </div>
@@ -96,7 +103,7 @@ export default function Courses() {
                       <GraduationCap className="w-8 h-8" />
                     </div>
                     <h3 className="text-3xl font-black text-white">{sub}</h3>
-                    <p className="text-white/40 font-bold mt-2 uppercase tracking-widest text-[10px]">{grade} Curriculum</p>
+                    <p className="text-white/40 font-bold mt-2 uppercase tracking-widest text-[10px]">{grade} • {board}</p>
                     <ChevronRight className="absolute bottom-10 right-10 w-8 h-8 text-white/10 group-hover:text-primary transition-all" />
                   </motion.button>
                 ))}
@@ -109,7 +116,7 @@ export default function Courses() {
               </button>
               
               <div className="grid lg:grid-cols-2 gap-6">
-                {syllabusData[grade]?.[selectedSubject]?.units.map((unit: any, uIdx: number) => (
+                {(syllabusData[board] || syllabusData['CBSE'])[grade]?.[selectedSubject]?.units.map((unit: any, uIdx: number) => (
                   <div key={unit.name} className="bg-white/5 border border-white/10 rounded-[3rem] p-8">
                     <div className="flex items-center gap-4 mb-8">
                        <span className="w-10 h-10 rounded-2xl bg-primary text-black flex items-center justify-center font-black">{uIdx + 1}</span>
@@ -165,7 +172,28 @@ export default function Courses() {
                 ) : (
                   <div className="space-y-12 pb-20">
                     <article className="prose prose-invert max-w-none text-white/70 text-xl leading-relaxed space-y-8">
-                       {lessonContent.split('\n\n').map((p, i) => p.startsWith('#') ? <h2 key={i} className="text-4xl font-black text-white mt-10">{p.replace(/#/g, '')}</h2> : <p key={i}>{p}</p>)}
+                       {lessonContent.split('\n\n').map((p, i) => {
+                         const cleanP = p.replace(/^\d+\.\s*/, ''); // Remove leading "1. ", "2. ", etc.
+                         const headers = ['WHAT IS IT?', 'HOW DOES IT WORK?', 'EXAMPLE', 'MEMORY TRICK'];
+                         const headerIndex = headers.findIndex(h => cleanP.toUpperCase().startsWith(h));
+                         const isMarkdownHeader = p.startsWith('#');
+                         
+                         if (headerIndex !== -1 || isMarkdownHeader) {
+                           const headerText = isMarkdownHeader ? p.replace(/#/g, '').trim() : headers[headerIndex];
+                           const contentText = isMarkdownHeader ? '' : cleanP.substring(headers[headerIndex].length).trim();
+                           
+                           return (
+                             <div key={i} className="space-y-4">
+                               <h2 className="text-4xl font-black text-primary mt-12 flex items-center gap-4 uppercase tracking-tighter">
+                                 {headerIndex !== -1 && <span className="text-white/20 text-6xl">0{headerIndex + 1}</span>}
+                                 {headerText}
+                               </h2>
+                               {contentText && <p className="text-white/70 text-xl leading-relaxed">{contentText}</p>}
+                             </div>
+                           );
+                         }
+                         return <p key={i}>{p}</p>;
+                       })}
                     </article>
 
                     {/* YouTube Video Section */}

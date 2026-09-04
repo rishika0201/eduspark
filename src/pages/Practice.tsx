@@ -30,7 +30,13 @@ export default function Practice() {
   const { studentInfo, activeTopic, activeSubject, recordTestAttempt } = useStudent();
   const isClass10 = studentInfo?.grade === 'Class 10';
   const grade = studentInfo?.grade || 'Class 10';
-  const syllabus = syllabusData[grade] || syllabusData['Class 10'];
+  const board = studentInfo?.board || 'CBSE';
+  
+  const syllabus = useMemo(() => {
+    const boardData = syllabusData[board] || syllabusData['CBSE'];
+    return boardData[grade] || boardData['Class 10'];
+  }, [board, grade]);
+
   const subjects = Object.keys(syllabus);
   const interests = studentInfo?.interests || [];
   const topicFromRoute = params.chapterId ? decodeURIComponent(params.chapterId) : '';
@@ -190,7 +196,7 @@ export default function Practice() {
             <div>
               <p className="text-primary text-[10px] uppercase tracking-[0.3em] font-black mb-3">{t('Practice Setup')}</p>
               <h1 className="text-4xl md:text-6xl font-black text-white tracking-tighter">{t('Build your session.')}</h1>
-              <p className="text-white/50 text-lg mt-4 max-w-2xl">
+              <p className="text-white/80 text-lg mt-4 max-w-2xl">
                 {t('Choose the subject, chapter, number of questions, and difficulty before the quiz starts.')}
               </p>
             </div>
@@ -199,7 +205,7 @@ export default function Practice() {
           <div className="grid lg:grid-cols-[0.8fr_1.2fr] gap-10">
             <div className="space-y-8">
               <label className="block">
-                <span className="text-xs font-black uppercase tracking-[0.2em] text-white/45 mb-3 block">{t('Subject')}</span>
+                <span className="text-xs font-black uppercase tracking-[0.2em] text-white/70 mb-3 block">{t('Subject')}</span>
                 <div className="grid grid-cols-2 gap-2">
                   {subjects.map((subject) => (
                     <button
@@ -226,7 +232,7 @@ export default function Practice() {
               </label>
 
               <label className="block">
-                <span className="text-xs font-black uppercase tracking-[0.2em] text-white/45 mb-3 block">{t('Question Count')}</span>
+                <span className="text-xs font-black uppercase tracking-[0.2em] text-white/70 mb-3 block">{t('Question Count')}</span>
                 <div className="flex items-center gap-4">
                   <input
                     type="range"
@@ -241,7 +247,7 @@ export default function Practice() {
               </label>
 
               <div className="space-y-4">
-                <span className="text-xs font-black uppercase tracking-[0.2em] text-white/45 block">{t('Difficulty')}</span>
+                <span className="text-xs font-black uppercase tracking-[0.2em] text-white/70 block">{t('Difficulty')}</span>
                 <div className="grid grid-cols-3 gap-2">
                   {difficultyOptions.map((option) => (
                     <button
@@ -264,7 +270,7 @@ export default function Practice() {
 
             <div className="space-y-8">
               <label className="block">
-                <span className="text-xs font-black uppercase tracking-[0.2em] text-white/45 mb-3 block">{t('Chapter selection')}</span>
+                <span className="text-xs font-black uppercase tracking-[0.2em] text-white/70 mb-3 block">{t('Chapter selection')}</span>
                 <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto custom-scrollbar p-1">
                   {chapterSuggestions.map((chapter) => (
                     <button
@@ -307,7 +313,7 @@ export default function Practice() {
         </div>
         <div className="text-center">
           <h2 className="text-3xl font-black text-white mb-3 tracking-tighter">Constructing Encounter...</h2>
-          <p className="text-white/40 uppercase tracking-[0.3em] text-xs">AI is tailoring challenges for {topicStr}</p>
+          <p className="text-white/70 uppercase tracking-[0.3em] text-xs">AI is tailoring challenges for {topicStr}</p>
         </div>
       </div>
     );
@@ -328,20 +334,20 @@ export default function Practice() {
           </div>
           <p className="text-[10px] font-black text-primary uppercase tracking-[0.35em] mb-4">Quiz Completed</p>
           <h1 className="text-5xl md:text-7xl font-black tracking-tighter text-white mb-6">Final Score: {score.toLocaleString()}</h1>
-          <p className="text-white/55 text-xl mb-10">
+          <p className="text-white/80 text-xl mb-10">
             You answered {correctAnswers} of {questions.length} correctly for {percentage}% mastery in {topicStr}.
           </p>
           <div className="grid sm:grid-cols-3 gap-4 mb-10 text-left">
             <div className="bg-black/30 border border-white/10 rounded-3xl p-6">
-              <p className="text-[10px] uppercase tracking-[0.2em] font-black text-white/35 mb-2">Accuracy</p>
+              <p className="text-[10px] uppercase tracking-[0.2em] font-black text-white/60 mb-2">Accuracy</p>
               <p className="text-3xl font-black text-primary">{percentage}%</p>
             </div>
             <div className="bg-black/30 border border-white/10 rounded-3xl p-6">
-              <p className="text-[10px] uppercase tracking-[0.2em] font-black text-white/35 mb-2">Final Combo</p>
+              <p className="text-[10px] uppercase tracking-[0.2em] font-black text-white/60 mb-2">Final Combo</p>
               <p className="text-3xl font-black text-primary">x{combo}</p>
             </div>
             <div className="bg-black/30 border border-white/10 rounded-3xl p-6">
-              <p className="text-[10px] uppercase tracking-[0.2em] font-black text-white/35 mb-2">Vitality</p>
+              <p className="text-[10px] uppercase tracking-[0.2em] font-black text-white/60 mb-2">Vitality</p>
               <p className="text-3xl font-black text-primary">{lives}/3</p>
             </div>
           </div>
@@ -393,7 +399,7 @@ export default function Practice() {
                 </motion.div>
               ))}
             </div>
-            <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Vitality</p>
+            <p className="text-[10px] font-black text-white/70 uppercase tracking-widest">Vitality</p>
           </div>
 
           <div className="flex flex-col items-center">
@@ -401,14 +407,14 @@ export default function Practice() {
               <Flame className={clsx("w-8 h-8 fill-primary", combo > 1 && "animate-pulse")} />
               x{combo}
             </motion.div>
-            <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Combo</p>
+            <p className="text-[10px] font-black text-white/70 uppercase tracking-widest">Combo</p>
           </div>
 
           <div className="flex flex-col items-center">
             <motion.p key={score} animate={{ scale: [1, 1.1, 1] }} className="text-4xl font-black text-white tracking-tighter">
               {score.toLocaleString()}
             </motion.p>
-            <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">XP Score</p>
+            <p className="text-[10px] font-black text-white/70 uppercase tracking-widest">XP Score</p>
           </div>
         </div>
       </ScrollReveal>
@@ -433,7 +439,7 @@ export default function Practice() {
                     <Target className="w-4 h-4" />
                     Encounter {currentQuestionIdx + 1} / {questions.length}
                   </span>
-                  <p className="text-white/40 font-black uppercase tracking-[0.3em] text-[10px] ml-1">
+                  <p className="text-white/70 font-black uppercase tracking-[0.3em] text-[10px] ml-1">
                     {subjectStr} - {topicStr} - {sessionConfig.difficulty.toUpperCase()}
                   </p>
                 </div>
@@ -480,7 +486,7 @@ export default function Practice() {
                       <div className="flex items-center gap-8">
                         <div className={clsx(
                           "w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl transition-all",
-                          isAnswered && isCorrect ? "bg-primary text-black" : "bg-white/5 text-white/40"
+                          isAnswered && isCorrect ? "bg-primary text-black" : "bg-white/5 text-white/70"
                         )}>
                           {opt.letter}
                         </div>

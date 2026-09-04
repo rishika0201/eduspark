@@ -65,11 +65,14 @@ export const cleanAIOutput = (value: string): string => {
   return value
     .replace(/^```(?:markdown|md|json)?/gim, '')
     .replace(/```$/gim, '')
-    .replace(/[â�][^\s]*/g, '')
+    .replace(/[â][^\s]*/g, '')
     .replace(/[^\S\r\n]+$/gm, '')
     .replace(/\n{3,}/g, '\n\n')
     .replace(/^\s*[-*]\s*(#{1,6}\s*)?/gm, '- ')
     .replace(/\s+([.,!?;:])/g, '$1')
+    .replace(/\*\*/g, '')
+    .replace(/__/g, '')
+    .replace(/#{1,6}\s?/g, '')
     .trim();
 };
 
@@ -167,3 +170,14 @@ export const localStorage_safe = {
     }
   }
 };
+
+/** Parse fetch JSON body; returns null for empty body or invalid JSON (avoids response.json() throwing). */
+export async function parseResponseJson<T = Record<string, unknown>>(response: Response): Promise<T | null> {
+  const text = await response.text();
+  if (!text.trim()) return null;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return null;
+  }
+}
